@@ -21,10 +21,36 @@ const LAST = '__last'
 const RANDOM = '__random'
 const OFF = '__off'
 
+// On Windows a bare `bash` on the PATH is often WSL's, which cannot read a
+// C:/ path: look for Git Bash the way Claude Code does (CLAUDE_CODE_GIT_BASH_PATH,
+// then Program Files, then the folder of the git on the PATH).
+let bash: string | undefined
+
+async function findBash($: EngineInterface): Promise<string> {
+  if (bash) return bash
+  const { platform } = await $.session.info()
+  if (platform !== 'windows') return (bash = 'bash')
+
+  const custom = await $.env.get('CLAUDE_CODE_GIT_BASH_PATH')
+  if (custom && (await $.fs.exists(custom))) return (bash = custom.replaceAll('\\', '/'))
+  const candidates = ['C:/Program Files/Git/bin/bash.exe', 'C:/Program Files (x86)/Git/bin/bash.exe']
+  // git --exec-path prints <Git>/mingw64/libexec/git-core: bash.exe is in <Git>/bin.
+  const git = await $.process.run(['git', '--exec-path']).catch(() => undefined)
+  let dir = git?.exitCode === 0 ? git.stdout.trim().replaceAll('\\', '/') : ''
+  while (dir.includes('/')) {
+    dir = dir.slice(0, dir.lastIndexOf('/'))
+    candidates.push(`${dir}/bin/bash.exe`)
+  }
+  for (const c of candidates) if (await $.fs.exists(c)) return (bash = c)
+
+  throw new Error('Git Bash introuvable : installez Git for Windows ou définissez CLAUDE_CODE_GIT_BASH_PATH.')
+}
+
 async function script($: EngineInterface, args: readonly string[]): Promise<string> {
   const env = await $.process.hookEnv()
+  const root = (env.CLAUDE_PLUGIN_ROOT ?? '').replaceAll('\\', '/')
   const { stdout, stderr, exitCode } = await $.process.run(
-    ['bash', `${env.CLAUDE_PLUGIN_ROOT}/scripts/persona.sh`, ...args],
+    [await findBash($), `${root}/scripts/persona.sh`, ...args],
     { env },
   )
   if (exitCode !== 0) throw new Error(`persona.sh ${args.join(' ')}: ${stderr || stdout}`)

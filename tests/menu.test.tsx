@@ -35,6 +35,7 @@ test('/persona opens the menu, a pick runs the script and tells the model', asyn
   on('command.register', () => ({ value: { command: 'persona' } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('process.hookEnv', () => ({ value: { CLAUDE_PLUGIN_ROOT: '/plug' } }))
+  on('session.info', () => ({ value: { transcriptPath: '', platform: 'linux' } }))
   on('process.run', (_, e) => {
     const argv = [...(e as { argv: string[] }).argv]
     runs.push(argv)
@@ -79,6 +80,7 @@ test('the scope toggle sends --project', async ($, on) => {
   on('command.register', () => ({ value: { command: 'persona' } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('process.hookEnv', () => ({ value: { CLAUDE_PLUGIN_ROOT: '/plug' } }))
+  on('session.info', () => ({ value: { transcriptPath: '', platform: 'linux' } }))
   on('process.run', (_, e) => {
     const argv = [...(e as { argv: string[] }).argv]
     runs.push(argv)
@@ -103,6 +105,7 @@ test('with arguments, no menu: the model gets the persona as context', async ($,
   on('command.register', () => ({ value: { command: 'persona' } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('process.hookEnv', () => ({ value: { CLAUDE_PLUGIN_ROOT: '/plug' } }))
+  on('session.info', () => ({ value: { transcriptPath: '', platform: 'linux' } }))
   on('process.run', () => ({ value: { exitCode: 0, stdout: 'PERSONA_ACTIVATED ginette (random, global)\nMode random', stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
   const result = await $.command.run({ command: 'persona', args: 'open-space' } as Parameters<typeof $.command.run>[0])
@@ -126,6 +129,7 @@ test('a hundred personas: a window around the focus, the preview stays, no numbe
   on('command.register', () => ({ value: { command: 'persona' } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('process.hookEnv', () => ({ value: { CLAUDE_PLUGIN_ROOT: '/plug' } }))
+  on('session.info', () => ({ value: { transcriptPath: '', platform: 'linux' } }))
   on('process.run', () => ({ value: { exitCode: 0, stdout: JSON.stringify(many), stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.focus', { plugin: '*' }, () => ({}))
@@ -156,4 +160,29 @@ test('a hundred personas: a window around the focus, the preview stays, no numbe
   // The preview keeps the last persona the ring was on.
   expect(await ui.find({ type: 'Text', text: /Aperçu : ginette/ })).toBeDefined()
   await ui.unmount()
+})
+
+test('on Windows the script runs through Git Bash, never a bare bash (WSL)', async ($, on) => {
+  const runs: string[][] = []
+  on('command.register', () => ({ value: { command: 'persona' } }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.info', () => ({ value: { transcriptPath: '', platform: 'windows' } }))
+  on('env.get', () => ({ value: undefined }))
+  on('process.hookEnv', () => ({ value: { CLAUDE_PLUGIN_ROOT: 'C:\\Users\\x\\.claude\\plugins\\personas' } }))
+  // The test host is not Windows: the engine reads D:/ as relative, hence endsWith.
+  on('fs.exists', (_, e) => ({ value: (e as { path: string }).path.endsWith('D:/Git/bin/bash.exe') }))
+  on('process.run', (_, e) => {
+    const argv = [...(e as { argv: string[] }).argv]
+    runs.push(argv)
+    const stdout = argv[0] === 'git' ? 'D:/Git/mingw64/libexec/git-core\n' : 'PERSONA_ACTIVATED alpha (global)'
+
+    return { value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }
+  })
+  on('ui.toast', () => ({ value: undefined }))
+  on('session.append', (_, e, next) => next(e))
+
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  await $.command.run({ command: 'persona', args: 'alpha' } as Parameters<typeof $.command.run>[0])
+
+  expect(runs.at(-1)).toEqual(['D:/Git/bin/bash.exe', 'C:/Users/x/.claude/plugins/personas/scripts/persona.sh', 'alpha'])
 })

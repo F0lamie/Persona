@@ -30,6 +30,11 @@ set -euo pipefail
 PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 USER_DIR="${PERSONAS_USER_DIR:-$HOME/.claude/personas}"
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$PWD}"
+# Windows hands these over as C:\...; Git Bash reads C:/... the same, and a
+# backslash never ends up read as an escape.
+PLUGIN_ROOT="${PLUGIN_ROOT//\\//}"
+USER_DIR="${USER_DIR//\\//}"
+PROJECT_DIR="${PROJECT_DIR//\\//}"
 GLOBAL_STATE="$USER_DIR/.active"
 LAST_RANDOM="$USER_DIR/.last-random"
 PROJECT_STATE="$PROJECT_DIR/.claude/persona.local"
@@ -188,14 +193,37 @@ $(body "$file" | shuffle_quotes)
 EOF
 }
 
+# A SessionStart hook's plain stdout is added to the context as is: no JSON,
+# so no jq.
 cmd_inject() {
   local name text
   read -r name _ <<<"$(resolve)"
   [[ "$name" == "off" ]] && exit 0
   name="$(effective "$name")" || exit 0
   text="$(render "$name")" || exit 0   # unknown persona: stay silent, never block a session
-  jq -n --arg ctx "$text" \
-    '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
+  printf '%s\n' "$text"
+}
+
+# A JSON string literal, quotes included. Character by character rather than
+# gsub, whose backslash rules differ between gawk, mawk and macOS awk.
+json_str() {
+  printf '%s' "$1" | awk '
+    BEGIN { ORS = ""; print "\"" }
+    {
+      if (NR > 1) print "\\n"
+      out = ""
+      for (i = 1; i <= length($0); i++) {
+        c = substr($0, i, 1)
+        if (c == "\\") out = out "\\\\"
+        else if (c == "\"") out = out "\\\""
+        else if (c == "\t") out = out "\\t"
+        else if (c == "\r") out = out "\\r"
+        else out = out c
+      }
+      print out
+    }
+    END { print "\"" }
+  '
 }
 
 cmd_list() {
@@ -399,21 +427,22 @@ cmd_check() {
 
 # Everything the menu draws, as one JSON object.
 cmd_json() {
-  local active src n f items=()
+  local active src n f origin sep=""
   read -r active src <<<"$(resolve)"
+  printf '{"active":%s,"source":%s,"global":%s,"project":%s,"lastRandom":%s,"userDir":%s,"personas":[' \
+    "$(json_str "$active")" "$(json_str "$src")" \
+    "$(json_str "$(read_state "$GLOBAL_STATE")")" "$(json_str "$(read_state "$PROJECT_STATE")")" \
+    "$(json_str "$(read_state "$LAST_RANDOM")")" "$(json_str "$USER_DIR")"
   while read -r n; do
     [[ -z "$n" ]] && continue
     f="$(find_persona "$n")" || continue
-    items+=("$(jq -n --arg name "$n" --arg description "$(field "$f" description)" \
-      --arg origin "$([[ "$f" == "$USER_DIR/"* ]] && echo user || echo plugin)" \
-      --arg preview "$(body "$f" | grep -v '^[[:space:]]*$' | head -12 | cut -c1-600)" \
-      '{name: $name, description: $description, origin: $origin, preview: $preview}')")
+    origin=plugin; [[ "$f" == "$USER_DIR/"* ]] && origin=user
+    printf '%s{"name":%s,"description":%s,"origin":%s,"preview":%s}' "$sep" \
+      "$(json_str "$n")" "$(json_str "$(field "$f" description)")" "$(json_str "$origin")" \
+      "$(json_str "$(body "$f" | grep -v '^[[:space:]]*$' | head -12 | cut -c1-600)")"
+    sep=","
   done < <(all_names)
-  jq -n --arg active "$active" --arg source "$src" \
-    --arg global "$(read_state "$GLOBAL_STATE")" --arg project "$(read_state "$PROJECT_STATE")" \
-    --arg last "$(read_state "$LAST_RANDOM")" --arg userDir "$USER_DIR" \
-    --argjson personas "$(printf '%s\n' "${items[@]}" | jq -s .)" \
-    '{active: $active, source: $source, global: $global, project: $project, lastRandom: $last, userDir: $userDir, personas: $personas}'
+  printf ']}\n'
 }
 
 main() {

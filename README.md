@@ -4,6 +4,8 @@ Une bibliothèque de personas pour Claude Code. `/persona` en charge une dans le
 
 ## Installation
 
+Prérequis : bash, rien d'autre. Il est fourni d'office sur Linux et macOS (le bash 3.2 de macOS suffit). Sous Windows, il faut Git for Windows : le plugin passe par son Git Bash, jamais par le `bash` de WSL. S'il est installé ailleurs que dans `Program Files`, définissez `CLAUDE_CODE_GIT_BASH_PATH`.
+
 Dans Claude Code :
 
 ```

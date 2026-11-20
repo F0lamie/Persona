@@ -3,6 +3,7 @@ description: Choisir la persona de Claude (list, <nom>, random, off, reset --pro
 argument-hint: "[list | <nom> | random | open-space | off | reset | new <nom> | check [nom]] [--project]"
 allowed-tools: Bash(bash "${CLAUDE_PLUGIN_ROOT}/scripts/persona.sh":*)
 disable-model-invocation: true
+shell: bash
 ---
 
 Résultat de la commande `/persona $ARGUMENTS` :

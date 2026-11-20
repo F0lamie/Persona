@@ -1,6 +1,6 @@
 {
   "name": "personas",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Une bibliothèque de personas pour Claude Code. /persona en charge une dans le contexte, sans modifier CLAUDE.md.",
   "author": {
     "name": "Hugo Bouleux",
