@@ -1,0 +1,15 @@
+{
+  "name": "claude-personas",
+  "description": "Personas pour Claude Code.",
+  "owner": {
+    "name": "Hugo Bouleux",
+    "url": "https://github.com/F0lamie"
+  },
+  "plugins": [
+    {
+      "name": "personas",
+      "source": "./",
+      "description": "Une bibliothèque de personas pour Claude Code. /persona en charge une dans le contexte, sans modifier CLAUDE.md."
+    }
+  ]
+}
