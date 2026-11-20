@@ -4,10 +4,21 @@ Une bibliothèque de personas pour Claude Code. `/persona` en charge une dans le
 
 ## Installation
 
+Dans Claude Code :
+
 ```
 /plugin marketplace add F0lamie/Persona
 /plugin install personas@claude-personas
 ```
+
+Ou avec l'URL complète du dépôt GitHub :
+
+```
+/plugin marketplace add https://github.com/F0lamie/Persona.git
+/plugin install personas@claude-personas
+```
+
+Puis `/reload-plugins`, ou redémarrer Claude Code.
 
 ## Utilisation
 
