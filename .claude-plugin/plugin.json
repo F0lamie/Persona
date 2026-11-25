@@ -1,6 +1,6 @@
 {
   "name": "personas",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Une bibliothèque de personas pour Claude Code. /persona en charge une dans le contexte, sans modifier CLAUDE.md.",
   "author": {
     "name": "Hugo Bouleux, Vincenzo Carminati",
